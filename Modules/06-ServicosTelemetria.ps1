@@ -4,7 +4,7 @@
 function Invoke-PrivacidadeTelemetriaMenu {
     $title = "MÓDULO: PRIVACIDADE E TELEMETRIA"
     
-    # Função interna para não repetir código.
+    # Função interna segura para definir valores de registro.
     function Set-RegistryValueSecurely {
         param($Path, $Name, $Value)
         try {
@@ -21,7 +21,7 @@ function Invoke-PrivacidadeTelemetriaMenu {
             Action = {
                 Write-Host "`n[*] Cortando o principal canal de fofocas do Windows..." -ForegroundColor Yellow
                 if (Set-RegistryValueSecurely -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry" -Value 0) {
-                    Write-Host "  V Telemetria principal silenciada. O sistema agora está (um pouco mais) no escuro." -ForegroundColor Green
+                    Write-Host "   V Telemetria principal silenciada. O sistema agora está (um pouco mais) no escuro." -ForegroundColor Green
                 } else {
                     Write-Host "  X Falha ao silenciar a telemetria. Ela realmente quer ser ouvida." -ForegroundColor Red
                 }
@@ -69,29 +69,10 @@ function Invoke-PrivacidadeTelemetriaMenu {
         @{
             Name = 'Voltar ao Menu Principal';
             Description = 'Sair da toca e voltar para o menu principal.';
-            Action = { $script:isSubMenu = $false }
+            Action = { } # Ação vazia.
         }
     )
 
-    $script:isSubMenu = $true
-    while ($script:isSubMenu) {
-        $selectedIndices = Show-Menu -Options $options -Title $title -MultiSelect $true
-        if ($null -ne $selectedIndices -and $selectedIndices.Count -gt 0) {
-            Clear-Host
-            Write-Host "Hora de colocar o chapéu de papel alumínio. Aplicando filtros de privacidade." -ForegroundColor Cyan
-            foreach ($index in $selectedIndices) {
-                 if ($options[$index].Name -eq 'Voltar ao Menu Principal') {
-                    & $options[$index].Action
-                    break
-                }
-                Write-Host "`n" + ("-"*60)
-                & $options[$index].Action
-            }
-            if ($script:isSubMenu) {
-                Read-Host "`nConfigurações de privacidade aplicadas. Você está agora um pouco mais invisível."
-            }
-        } else {
-            $script:isSubMenu = $false
-        }
-    }
+    # Chama o handler de submenu genérico para gerenciar este menu de seleção múltipla.
+    Invoke-SubMenuHandler -Options $options -Title $title -MultiSelect $true
 }

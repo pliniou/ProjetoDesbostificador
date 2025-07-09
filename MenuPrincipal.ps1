@@ -17,7 +17,7 @@ try {
     # Carregando cada função. Se algo quebrar, não fui eu.
     Get-ChildItem -Path $modulePath -Filter '*.ps1' | ForEach-Object { . $_.FullName }
     Write-Host "V Módulos carregados. Surpreendentemente, sem erros." -ForegroundColor Green
-    Start-Sleep -Seconds 2
+    Start-Sleep -Seconds 1
 }
 catch {
     Write-Host "X ERRO CRÍTICO: Parece que alguém tropeçou nos fios." -ForegroundColor Red
@@ -26,8 +26,9 @@ catch {
     exit
 }
 
-# --- FUNÇÃO DE MENU INTERATIVO (CEBOLA UI v1.0) ---
-# Nossa interface patenteada. Admire.
+# --- FUNÇÕES DE UI (CEBOLA UI v1.1) ---
+
+# Função de Menu Interativo. Nossa interface patenteada. Admire.
 function Show-Menu {
     param (
         [Parameter(Mandatory = $true)] [array]$Options,
@@ -47,7 +48,7 @@ function Show-Menu {
         Write-Host ("=" * 70) -ForegroundColor $borderColor
         Write-Host "  $($Title.ToUpper())" -ForegroundColor $titleColor
         Write-Host ("=" * 70) -ForegroundColor $borderColor
-        Write-Host "  Use [↑][↓] para navegar. [Enter] para confirmar." -ForegroundColor Gray
+        Write-Host "  Use [↑][↓] para navegar. [Enter] para confirmar. [Esc] para voltar." -ForegroundColor Gray
         if ($MultiSelect) {
             Write-Host "  Use [Espaço] para marcar/desmarcar. Sim, é como mágica." -ForegroundColor Gray
         }
@@ -64,6 +65,7 @@ function Show-Menu {
                 Write-Host "$cursor$($checkbox) $($option.Name)" -ForegroundColor $normalItemColor
             }
         }
+
         $description = $Options[$currentIndex].Description
         if ($description) {
             Write-Host
@@ -72,16 +74,58 @@ function Show-Menu {
             Write-Host "  $description" -ForegroundColor "Gray"
             Write-Host ("-" * 70) -ForegroundColor $borderColor
         }
+
         $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown").VirtualKeyCode
         switch ($key) {
-            13 { if (-not $MultiSelect) { return @($currentIndex) }; break }
-            32 { if ($MultiSelect) { if ($selectedIndexes.Contains($currentIndex)) { [void]$selectedIndexes.Remove($currentIndex) } else { [void]$selectedIndexes.Add($currentIndex) } } }
-            38 { if ($currentIndex -gt 0) { $currentIndex-- } }
-            40 { if ($currentIndex -lt ($Options.Count - 1)) { $currentIndex++ } }
-            27 { return $null }
+            13 { # Enter
+                if (-not $MultiSelect) { return @($currentIndex) }
+                break
+            }
+            32 { # Space
+                if ($MultiSelect) {
+                    if ($selectedIndexes.Contains($currentIndex)) { [void]$selectedIndexes.Remove($currentIndex) }
+                    else { [void]$selectedIndexes.Add($currentIndex) }
+                }
+            }
+            38 { if ($currentIndex -gt 0) { $currentIndex-- } } # Up Arrow
+            40 { if ($currentIndex -lt ($Options.Count - 1)) { $currentIndex++ } } # Down Arrow
+            27 { return $null } # Escape
         }
     } while ($key -ne 13)
-    return $selectedIndexes | Sort-Object
+
+    return ($selectedIndexes | Sort-Object)
+}
+
+# Handler genérico para submenus. Centraliza a lógica para não repetir código.
+function Invoke-SubMenuHandler {
+    param(
+        [Parameter(Mandatory=$true)][array]$Options,
+        [Parameter(Mandatory=$true)][string]$Title,
+        [bool]$MultiSelect = $false
+    )
+    $loop = $true
+    while ($loop) {
+        $selectedIndices = Show-Menu -Options $options -Title $title -MultiSelect $MultiSelect
+        
+        if ($null -ne $selectedIndices -and $selectedIndices.Count -gt 0) {
+            Clear-Host
+            foreach ($index in $selectedIndices) {
+                # A opção de voltar/sair sempre encerra o loop deste submenu
+                if ($options[$index].Action.ToString() -match '\$script:isSubMenu = \$false' -or $options[$index].Name -match 'Voltar') {
+                    $loop = $false
+                    break
+                }
+                Write-Host "`n" + ("-"*60)
+                & $options[$index].Action
+            }
+
+            if ($loop) {
+                Read-Host "`nOperação concluída. Pressione Enter para voltar ao menu anterior..."
+            }
+        } else {
+            $loop = $false
+        }
+    }
 }
 
 
@@ -99,9 +143,12 @@ function Show-MainMenu {
     $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem
     $title = "DESBOSTIFICADOR v1.0 | CEBOLA STUDIOS | $($osInfo.Caption)"
     $selectedIndex = Show-Menu -Options $options -Title $title
+    
     if ($null -ne $selectedIndex) {
-        $action = $options[$selectedIndex[0]].Action
-        if ($action) { & $action }
+        & $options[$selectedIndex[0]].Action
+    } else {
+        # Se o usuário pressionar Esc no menu principal, considera-se a intenção de sair.
+        $script:continueLoop = $false
     }
 }
 

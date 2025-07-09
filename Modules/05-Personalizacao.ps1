@@ -5,7 +5,7 @@ function Invoke-PersonalizacaoMenu {
     $title = "MÓDULO: PERSONALIZAÇÃO DA INTERFACE"
     # Flag para reiniciar o explorer.exe no final, se necessário.
     $explorerNeedsRestart = $false
-
+    
     $options = @(
         @{
             Name = 'Ativar Modo Escuro para Apps e Sistema';
@@ -23,7 +23,7 @@ function Invoke-PersonalizacaoMenu {
             Action = {
                 Write-Host "[*] Revertendo o menu de contexto à sua antiga glória..." -ForegroundColor Yellow
                 $regPath = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
-                if (!(Test-Path $regPath)) { New-Item $regPath -Force | Out-Null }
+                New-Item $regPath -Force | Out-Null
                 Set-ItemProperty -Path $regPath -Name "(Default)" -Value "" -Force
                 $script:explorerNeedsRestart = $true
                 Write-Host "V Menu de contexto clássico restaurado. De nada." -ForegroundColor Green
@@ -54,6 +54,7 @@ function Invoke-PersonalizacaoMenu {
             Description = 'Remove o botão de clima/notícias da barra de tarefas que ninguém pediu.';
             Action = {
                 Write-Host "[*] Desativando o portal de distrações da barra de tarefas..." -ForegroundColor Yellow
+                # O valor 0 desativa. O valor 1 ativa.
                 Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarDa" -Value 0
                 $script:explorerNeedsRestart = $true
                 Write-Host "V Widgets desativados. Menos uma coisa para te distrair." -ForegroundColor Green
@@ -62,39 +63,39 @@ function Invoke-PersonalizacaoMenu {
         @{
             Name = 'Voltar ao Menu Principal';
             Description = 'Abortar missão e retornar à base.';
-            Action = { $script:isSubMenu = $false }
+            Action = { } # Ação vazia.
         }
     )
 
-    $script:isSubMenu = $true
-    while ($script:isSubMenu) {
-        # Resetando a flag a cada exibição do menu
+    # Inicia o loop do menu
+    $loop = $true
+    while ($loop) {
         $script:explorerNeedsRestart = $false
         $selectedIndices = Show-Menu -Options $options -Title $title -MultiSelect $true
-
+        
         if ($null -ne $selectedIndices -and $selectedIndices.Count -gt 0) {
             Clear-Host
             Write-Host "Aplicando suas... escolhas de design. Boa sorte." -ForegroundColor Cyan
+            
             foreach ($index in $selectedIndices) {
                  if ($options[$index].Name -eq 'Voltar ao Menu Principal') {
-                    & $options[$index].Action
+                    $loop = $false
                     break
                 }
                 Write-Host "`n" + ("-"*60)
                 & $options[$index].Action
             }
 
+            if (-not $loop) { break }
+
             if ($script:explorerNeedsRestart) {
                 Write-Host "`n[*] Suas alterações exigem um sacrifício. Reiniciando o Windows Explorer..." -ForegroundColor Yellow
                 Stop-Process -Name explorer -Force
                 Write-Host "V O Explorer foi reiniciado. Se algo sumiu, provavelmente não era importante." -ForegroundColor Green
             }
-
-            if ($script:isSubMenu) {
-                Read-Host "`nPersonalizações aplicadas. O sistema agora tem um pouco mais de você nele."
-            }
+            Read-Host "`nPersonalizações aplicadas. Pressione Enter para continuar..."
         } else {
-            $script:isSubMenu = $false
+            $loop = $false
         }
     }
 }

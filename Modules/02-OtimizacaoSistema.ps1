@@ -19,21 +19,17 @@ function Invoke-OtimizacaoSistemaMenu {
             Description = 'Faz o Windows parecer que voltou a 2001, mas pode deixá-lo um pouco mais rápido.';
             Action = {
                 Write-Host "`n[*] Removendo o brilho e o glamour da interface..." -ForegroundColor Yellow
-                # Desativa o serviço de Temas
-                try {
-                    Set-Service -Name "Themes" -StartupType Disabled; Stop-Service -Name "Themes" -Force
-                } catch {}
-                # Ajusta para melhor desempenho via registro
+                # Ajusta para melhor desempenho via registro. É mais seguro que parar o serviço de Temas.
                 $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects"
                 Set-ItemProperty -Path $regPath -Name "VisualFx" -Value 2
-                Write-Host "V Efeitos visuais desativados. Bem-vindo à era da velocidade bruta." -ForegroundColor Green
+                Write-Host "V Efeitos visuais ajustados para performance. Bem-vindo à era da velocidade bruta." -ForegroundColor Green
             }
         },
         @{
             Name = 'Desativar Serviços Desnecessários (Fax, Spooler, etc)';
             Description = 'Dispensa funcionários (serviços) que raramente fazem algo útil.';
             Action = {
-                $servicesToDisable = @("Fax", "Spooler", "MapsBroker", "lfsvc")
+                $servicesToDisable = @("Fax", "Spooler", "MapsBroker", "lfsvc") # Spooler é para impressão, se não usa, pode desativar.
                 Write-Host "`n[*] Desativando serviços que provavelmente você nem sabia que existiam..." -ForegroundColor Yellow
                 foreach ($serviceName in $servicesToDisable) {
                     try {
@@ -81,7 +77,7 @@ function Invoke-OtimizacaoSistemaMenu {
                         Remove-Item -Path (Join-Path $path "*") -Recurse -Force -ErrorAction SilentlyContinue
                     }
                 }
-                 Write-Host "V Arquivos temporários? Que arquivos?" -ForegroundColor Green
+                Write-Host "V Arquivos temporários? Que arquivos?" -ForegroundColor Green
             }
         },
         @{
@@ -101,30 +97,10 @@ function Invoke-OtimizacaoSistemaMenu {
         @{
             Name = 'Voltar ao Menu Principal';
             Description = 'Fugir para as colinas. Digo, para o menu anterior.';
-            Action = { $script:isSubMenu = $false }
+            Action = { } # Ação vazia, o handler de menu cuidará do retorno.
         }
     )
 
-    $script:isSubMenu = $true
-    while ($script:isSubMenu) {
-        $selectedIndices = Show-Menu -Options $options -Title $title -MultiSelect $true
-        if ($null -ne $selectedIndices -and $selectedIndices.Count -gt 0) {
-            Clear-Host
-            Write-Host "Iniciando otimizações. Se algo explodir, não nos responsabilizamos." -ForegroundColor Cyan
-            foreach ($index in $selectedIndices) {
-                # Evita que a opção 'Voltar' seja executada no loop
-                if ($options[$index].Name -eq 'Voltar ao Menu Principal') {
-                    & $options[$index].Action
-                    break
-                }
-                Write-Host "`n" + ("-"*60)
-                & $options[$index].Action
-            }
-            if ($script:isSubMenu) {
-                Read-Host "`nOtimizações (supostamente) concluídas. Pressione Enter para continuar sua jornada."
-            }
-        } else {
-            $script:isSubMenu = $false
-        }
-    }
+    # Chama o handler de submenu genérico para gerenciar este menu de seleção múltipla.
+    Invoke-SubMenuHandler -Options $options -Title $title -MultiSelect $true
 }

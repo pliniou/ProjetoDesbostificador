@@ -24,7 +24,7 @@ function Invoke-BackupRestauracaoMenu {
             Description = 'Faz uma cópia do cérebro do Windows. Não garantimos que ele seja saudável para começar.';
             Action = {
                 $backupDir = Join-Path -Path $env:USERPROFILE -ChildPath "Desktop\BackupRegistro_Cebola_$(Get-Date -Format 'yyyy-MM-dd_HH-mm')"
-                if (-not (Test-Path $backupDir)) { New-Item -ItemType Directory -Path $backupDir | Out-Null }
+                if (-not (Test-Path $backupDir)) { New-Item -ItemType Directory -Path $backupDir -Force | Out-Null }
                 Write-Host "`n[*] Fazendo o backup do Registro em '$backupDir'. Não perca esta pasta." -ForegroundColor Yellow
                 try {
                     Start-Process reg.exe -ArgumentList "export HKLM `"$($backupDir)\HKLM_Backup.reg`" /y" -Wait -NoNewWindow
@@ -43,12 +43,12 @@ function Invoke-BackupRestauracaoMenu {
                 if ((Test-Path $backupFile -PathType Leaf) -and $backupFile.EndsWith(".reg")) {
                     Write-Host "`nAVISO: VOCÊ ESTÁ PRESTES A MODIFICAR O REGISTRO DE FORMA IRREVERSÍVEL." -ForegroundColor Red
                     $confirm = Read-Host "Se você tem certeza absoluta (o que é raro), digite 'S' para continuar"
-                    if ($confirm -eq 'S') {
+                    if ($confirm.ToUpper() -eq 'S') {
                         Write-Host "`n[*] Importando registro. Se o PC travar, foi um prazer conhecê-lo." -ForegroundColor Yellow
                         Start-Process reg.exe -ArgumentList "import `"$backupFile`"" -Wait -NoNewWindow
                         Write-Host "V Registro (supostamente) restaurado. Recomendo fortemente reiniciar o computador e rezar." -ForegroundColor Green
                     } else {
-                        Write-Host "Operação cancelada. Sabia decisão." -ForegroundColor Gray
+                        Write-Host "Operação cancelada. Sábia decisão." -ForegroundColor Gray
                     }
                 } else {
                     Write-Host "X Arquivo inválido ou não encontrado. Detalhes, meu caro, detalhes." -ForegroundColor Red
@@ -71,21 +71,10 @@ function Invoke-BackupRestauracaoMenu {
         @{
             Name = 'Voltar ao Menu Principal';
             Description = 'Retornar à segurança (relativa) do menu principal.';
-            Action = { $script:isSubMenu = $false }
+            Action = { } # Ação vazia, o handler de menu cuidará do retorno.
         }
     )
 
-    $script:isSubMenu = $true
-    while ($script:isSubMenu) {
-        $selectedIndex = Show-Menu -Options $options -Title $title
-        if ($null -ne $selectedIndex) {
-            Clear-Host
-            & $options[$selectedIndex[0]].Action
-            if ($script:isSubMenu) {
-                Read-Host "`nPressione Enter para voltar ao menu de opções de backup..."
-            }
-        } else {
-            $script:isSubMenu = $false
-        }
-    }
+    # Chama o handler de submenu genérico para gerenciar este menu.
+    Invoke-SubMenuHandler -Options $options -Title $title
 }
